@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172e30">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/styles.css">
+  <title>작은 영화제의 하루 · 편성실</title>
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 이동</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#planner">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+        <span>작은 영화제의 하루</span>
+      </a>
+      <nav aria-label="역할 선택">
+        <a id="nav-planner" href="#planner">편성실</a>
+        <a id="nav-audience" href="#audience">관객 시간표</a>
+      </nav>
+      <span id="storage-status" class="storage-status">저장 상태 확인 중</span>
+    </div>
+  </header>
+  <main id="main" class="page" tabindex="-1"></main>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript>영화제 시간표를 사용하려면 브라우저에서 JavaScript를 켜 주세요.</noscript>
+</body>
+</html>

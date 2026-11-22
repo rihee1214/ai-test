@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" lang="ko">
+  <title>교육 키트 배정 데스크 배정 후 화면</title>
+    <rect x="0" y="0" width="960" height="640" rx="0" fill="#f3f6f5"/>
+    <rect x="0" y="0" width="960" height="88" rx="0" fill="#153f38"/>
+  <g font-family="Malgun Gothic,sans-serif" font-size="18" fill="#193c35">
+    <text x="48" y="55" fill="white" font-size="30" font-weight="700">교육 키트 배정 데스크</text>
+    <text x="822" y="53" fill="white">오전 차수</text>
+    <rect x="48" y="112" width="864" height="76" rx="8" fill="#dceee7"/>
+    <text x="72" y="159" font-size="22">남은 키트</text>
+    <text x="805" y="163" font-size="34" font-weight="700">0개</text>
+    <text x="48" y="231" font-size="23" font-weight="700">수업별 신청</text>
+    <rect x="48" y="248" width="864" height="198" rx="8" fill="white"/>
+    <rect x="48" y="248" width="864" height="42" rx="0" fill="#e3eae7"/>
+    <text x="72" y="276" font-size="16">번호</text>
+    <text x="178" y="276" font-size="16">수업명</text>
+    <text x="434" y="276" font-size="16">신청</text>
+    <text x="570" y="276" font-size="16">상태</text>
+    <text x="802" y="276" font-size="16">조작</text>
+    <path d="M48 342H912 M48 394H912" stroke="#dae2de"/>
+    <text x="72" y="324">K01</text>
+    <text x="178" y="324">로봇 교실</text>
+    <text x="434" y="324">3개</text>
+    <text x="570" y="324">배정 완료</text>
+    <rect x="780" y="299" width="84" height="35" rx="5" fill="#e3eae7"/>
+    <text x="822" y="323" text-anchor="middle" fill="#193c35">취소</text>
+    <text x="72" y="376">K02</text>
+    <text x="178" y="376">회로 교실</text>
+    <text x="434" y="376">2개</text>
+    <text x="570" y="376">대기</text>
+    <rect x="780" y="351" width="84" height="35" rx="5" fill="#236c59"/>
+    <text x="822" y="375" text-anchor="middle" fill="white">배정</text>
+    <text x="72" y="428">K03</text>
+    <text x="178" y="428">빛 교실</text>
+    <text x="434" y="428">1개</text>
+    <text x="570" y="428">배정 완료</text>
+    <rect x="780" y="403" width="84" height="35" rx="5" fill="#e3eae7"/>
+    <text x="822" y="427" text-anchor="middle" fill="#193c35">취소</text>
+    <rect x="48" y="494" width="864" height="98" rx="8" fill="white"/>
+    <text x="72" y="532" font-size="22" font-weight="700">전달 목록</text>
+    <text x="72" y="568">로봇 교실 3개 · 빛 교실 1개</text>
+    <rect x="780" y="515" width="104" height="40" rx="5" fill="#e3eae7"/>
+    <text x="832" y="542" text-anchor="middle">초기화</text>
+  </g>
+</svg>

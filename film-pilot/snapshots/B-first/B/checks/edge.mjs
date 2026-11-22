@@ -1,0 +1,238 @@
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, mkdtempDisposable, readFile, realpath } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { launchEdge, origin, until } from "./edge-driver.mjs";
+
+const response = await fetch(origin);
+assert.ok(response.ok && (await response.text()).includes("작은 영화제의 하루"), "node server.js로 편성실을 먼저 실행해 주세요.");
+const tempRoot = await realpath(tmpdir());
+const run = await mkdtempDisposable(path.join(tempRoot, "small-film-edge-"));
+assert.equal(path.dirname(await realpath(run.path)), tempRoot);
+const profile = path.join(run.path, "profile");
+const downloads = path.join(run.path, "downloads");
+await Promise.all([mkdir(profile), mkdir(downloads)]);
+const images = process.argv.includes("--screenshots") ? await mkdtemp(path.join(tempRoot, "small-film-views-")) : null;
+if (images) console.log("화면 캡처", images);
+
+const action = (name) => `main [data-action="${name}"]`;
+const filmButton = (id) => `main [data-action="edit"][data-film="${id}"]`;
+const modalAction = (name) => `dialog[open] [data-action="${name}"]`;
+const formTime = (name) => `dialog[open] input[name="${name}"]`;
+const roomChoice = (id) => `dialog[open] .room-picker label[data-hall="${id}"]`;
+const noDialog = (page) => page.waitFor("!document.querySelector('dialog').open");
+const shot = (page, name) => images && page.screenshot(path.join(images, name + ".png"));
+const slots = (n) => `document.querySelectorAll('.slot').length === ${n}`;
+const programs = (n) => `document.querySelectorAll('.program li').length === ${n}`;
+
+async function saveEditor(page) {
+  await page.click("#edit-form [type=submit]");
+  await noDialog(page);
+}
+async function review(page, enabled) {
+  await page.click(action("review"));
+  assert.equal(await page.evaluate("document.querySelector('[data-action=publish]').disabled"), !enabled);
+}
+async function closeDialog(page) {
+  await page.click(modalAction("close"));
+  await noDialog(page);
+}
+async function publish(page, audience, edition) {
+  await page.click(modalAction("publish"));
+  await page.hasText("#dialog-title", "발행 변경 안내");
+  await page.hasText(".published-message", "발행본 " + edition);
+  await audience.hasText(".badge", "발행본 " + edition);
+}
+
+let browser;
+try {
+  browser = await launchEdge(profile, downloads);
+  console.log("Edge", browser.product);
+  let planner = await browser.page("planner");
+  await planner.waitFor(slots(6));
+  assert.equal(await planner.evaluate("document.querySelectorAll('.film-card').length"), 2);
+  assert.deepEqual(await planner.evaluate("[innerWidth,innerHeight,document.documentElement.scrollWidth]"), [1280, 800, 1280]);
+  assert.ok(await planner.evaluate("document.querySelector('.page-footer').getBoundingClientRect().bottom <= innerHeight"));
+  await shot(planner, "01-planner");
+  await planner.click("#nav-audience");
+  await planner.waitFor(programs(6));
+  await planner.click("#nav-planner");
+  await planner.waitFor(slots(6));
+  let audience = await browser.page("audience");
+  await audience.waitFor(programs(6));
+  console.log("통과 · 초기 여섯 편, 미편성 두 편, 1280×800 배치와 역할 전환");
+
+  await planner.click(filmButton("north-road"));
+  await planner.click(roomChoice("small"));
+  await planner.hasText("#edit-feedback", "40석에 예상 관객이 60명");
+  await saveEditor(planner);
+  await planner.hasText(".check-panel", "좌석 부족");
+  await review(planner, false);
+  await planner.click("dialog .film-link[data-film=north-road]");
+  await planner.click(modalAction("unassign"));
+  await noDialog(planner);
+
+  await planner.click(filmButton("paper-boat"));
+  assert.equal(await planner.evaluate("document.querySelector('#edit-form').elements.start.value"), "16:20");
+  await planner.hasText("#show-end", "17:05");
+  await planner.hasText("#clear-end", "17:15");
+  await planner.fillTime(formTime("start"), "12:59");
+  await planner.hasText("#edit-feedback", "운영 시간 초과");
+  await planner.fillTime(formTime("start"), "16:19");
+  await planner.hasText("#edit-feedback", "작품 간 시간 겹침");
+  await saveEditor(planner);
+  await planner.hasText(".check-panel", "작품 간 시간 겹침");
+  await review(planner, false);
+  await planner.click("dialog .film-link[data-film=paper-boat]");
+  await planner.fillTime(formTime("start"), "16:20");
+  await planner.hasText("#edit-feedback", "상영할 수 있습니다");
+  await shot(planner, "02-editor");
+  await saveEditor(planner);
+  await planner.waitFor(slots(7));
+  await audience.waitFor(programs(6));
+  await review(planner, true);
+  await planner.hasText(".changes", "작은관 16:20–17:05");
+  await publish(planner, audience, 2);
+  await audience.waitFor(programs(7));
+  await audience.hasText(".program[data-hall=small]", "종이배");
+  await closeDialog(planner);
+  console.log("통과 · 좌석 부족, 운영 시작, 정리 1분 겹침, 미편성작을 남긴 부분 발행과 관객 탭 갱신");
+
+  await planner.click(action("closures"));
+  await planner.click(roomChoice("small"));
+  await planner.fillTime(formTime("start"), "17:05");
+  await planner.fillTime(formTime("end"), "17:00");
+  await planner.click("#closure-form [type=submit]");
+  await planner.hasText(".dialog-error", "시작 시각보다 늦게");
+  await planner.fillTime(formTime("end"), "17:15");
+  await planner.click("#closure-form [type=submit]");
+  await planner.hasText("#closure-list", "겹치는 작품 · 종이배");
+  await planner.click("#closure-form [type=submit]");
+  await planner.hasText(".dialog-error", "이미 있습니다");
+  assert.equal(await planner.evaluate("document.querySelectorAll('#closure-list li').length"), 1);
+  await closeDialog(planner);
+  await planner.hasText(".check-panel", "정리 시간 17:05–17:15");
+  await planner.hasText(".blocked-times", "작은관 17:05–17:15");
+  await review(planner, false);
+  await planner.click("dialog .film-link[data-film=paper-boat]");
+  await planner.click(roomChoice("large"));
+  await planner.fillTime(formTime("start"), "17:10");
+  await planner.hasText("#clear-end", "18:05");
+  await saveEditor(planner);
+  await review(planner, false);
+  await planner.click("dialog .film-link[data-film=paper-boat]");
+  await planner.fillTime(formTime("start"), "17:05");
+  await planner.hasText("#clear-end", "18:00");
+  await saveEditor(planner);
+  await audience.hasText(".program[data-hall=small]", "종이배");
+  await review(planner, true);
+  assert.equal(await planner.evaluate("document.querySelectorAll('.changes li').length"), 1);
+  await planner.hasText(".changes", "작은관 16:20–17:05");
+  await planner.hasText(".changes", "큰관 17:05–17:50");
+  await shot(planner, "03-review");
+  await publish(planner, audience, 3);
+  await audience.hasText(".program[data-hall=large]", "종이배");
+  await shot(audience, "04-audience");
+  await planner.click(modalAction("download"));
+  const file = path.join(downloads, "작은영화제-발행본3-변경안내.txt");
+  const exported = await until(() => readFile(file, "utf8"), "스태프 안내 파일 다운로드");
+  assert.equal(exported.charCodeAt(0), 0xfeff);
+  assert.match(exported, /\[이동\] 종이배\r\n이전 일정  작은관 16:20–17:05\r\n새 일정    큰관 17:05–17:50/);
+  assert.doesNotMatch(exported, /첫차|18:00/);
+  await closeDialog(planner);
+  console.log("통과 · 사용 중단 등록과 정리 충돌, 18:05 차단, 18:00 정리 종료 발행, 실제 한글 파일 다운로드");
+
+  await planner.click(filmButton("ripple"));
+  await planner.click(modalAction("unassign"));
+  await noDialog(planner);
+  await planner.waitFor(slots(6));
+  await audience.waitFor(programs(7));
+  assert.deepEqual(browser.errors, []);
+  await browser.close();
+  browser = null;
+  browser = await launchEdge(profile, downloads);
+  planner = await browser.page("planner");
+  audience = await browser.page("audience");
+  await planner.waitFor(slots(6));
+  await planner.hasText(".film-shelf", "잔물결");
+  await audience.waitFor(programs(7));
+  await audience.hasText(".badge", "발행본 3");
+  await audience.hasText(".program[data-hall=small]", "잔물결");
+  await audience.hasText(".program[data-hall=large]", "종이배");
+  await planner.click(action("notice"));
+  await planner.hasText(".changes", "작은관 16:20–17:05");
+  await planner.hasText(".changes", "큰관 17:05–17:50");
+  await closeDialog(planner);
+  await review(planner, true);
+  await planner.hasText(".changes", "편성 해제");
+  await planner.hasText(".changes", "잔물결");
+  await closeDialog(planner);
+  await planner.click(action("closures"));
+  await planner.hasText("#closure-list", "17:05–17:15");
+  await planner.click(modalAction("remove-block"));
+  await planner.hasText("#closure-list", "등록된 사용 중단 구간이 없습니다");
+  await closeDialog(planner);
+  console.log("통과 · Edge 정상 종료·재실행 뒤 초안, 관객 발행본, 중단 구간, 이전·새 일정 복구");
+
+  await planner.click(action("restore"));
+  await closeDialog(planner);
+  await planner.hasText(".film-shelf", "잔물결");
+  await planner.click(action("restore"));
+  await planner.click(modalAction("apply-restore"));
+  await noDialog(planner);
+  await planner.hasText(".hall-row[data-hall=small]", "종이배");
+  await audience.hasText(".program[data-hall=large]", "종이배");
+  await review(planner, true);
+  await publish(planner, audience, 4);
+  await closeDialog(planner);
+  await planner.click(action("restore"));
+  await planner.click(modalAction("apply-restore"));
+  await noDialog(planner);
+  await planner.hasText(".blocked-times", "작은관 17:05–17:15");
+  await planner.hasText(".hall-row[data-hall=large]", "종이배");
+  await audience.hasText(".program[data-hall=small]", "종이배");
+  await review(planner, true);
+  await publish(planner, audience, 5);
+  await audience.hasText(".program[data-hall=large]", "종이배");
+  await closeDialog(planner);
+  console.log("통과 · 복구 취소, 직전 작품 배정과 중단 구간 복구, 검토·재발행 전후 관객 탭 분리");
+
+  await planner.click(action("reset"));
+  await closeDialog(planner);
+  await audience.hasText(".badge", "발행본 5");
+  await planner.click(action("reset"));
+  await planner.click(modalAction("confirm-reset"));
+  await noDialog(planner);
+  await audience.hasText(".badge", "발행본 1");
+  await audience.waitFor(programs(6));
+  await planner.waitFor(slots(6));
+  assert.equal(await planner.evaluate("document.querySelectorAll('.film-card').length"), 2);
+  await planner.hasText(".edition-line", "초안과 동일");
+  await planner.click(action("notice"));
+  await planner.hasText("dialog", "첫 발행본입니다");
+  await closeDialog(planner);
+  assert.deepEqual(browser.errors, []);
+  console.log("통과 · 복원 취소·확정, 최초 발행본과 미편성 목록 복원, 페이지 오류·외부 요청 0건");
+
+  const secondPlanner = await browser.page("planner");
+  await planner.click(filmButton("paper-boat"));
+  await secondPlanner.click(filmButton("north-road"));
+  await saveEditor(planner);
+  await saveEditor(secondPlanner);
+  await planner.waitFor(slots(8));
+  await planner.hasText(".library", "전체 8편을 모두 편성했습니다");
+  await planner.click(filmButton("north-road"));
+  await secondPlanner.click(filmButton("north-road"));
+  await secondPlanner.fillTime(formTime("start"), "17:00");
+  await saveEditor(secondPlanner);
+  await planner.hasText("#edit-feedback", "다른 창에서 이 작품의 편성이 바뀌었습니다");
+  assert.ok(await planner.evaluate("document.querySelector('#edit-form [type=submit]').disabled"));
+  await planner.click("#edit-feedback [data-action=edit]");
+  assert.equal(await planner.evaluate("document.querySelector('#edit-form').elements.start.value"), "17:00");
+  await audience.waitFor(programs(6));
+  assert.deepEqual(browser.errors, []);
+  console.log("통과 · 두 편성 탭의 변경 보존, 동일 작품의 오래된 편집 감지와 다시 불러오기");
+} finally {
+  if (browser) await browser.close();
+  await until(async () => { await run.remove(); return true; }, "검증 전용 임시 프로필 정리");
+}

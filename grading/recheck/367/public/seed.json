@@ -1,0 +1,10 @@
+{
+  "session": "오전 차수",
+  "item": "교육 키트",
+  "totalUnits": 4,
+  "requests": [
+    {"id": "K01", "className": "로봇 교실", "units": 3, "status": "waiting"},
+    {"id": "K02", "className": "회로 교실", "units": 2, "status": "waiting"},
+    {"id": "K03", "className": "빛 교실", "units": 1, "status": "waiting"}
+  ]
+}

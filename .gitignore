@@ -1,0 +1,5 @@
+.agents/
+.codex/
+node_modules/
+/.local-tools/
+/film-pilot/*.zip

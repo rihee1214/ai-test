@@ -1,0 +1,24 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>교육 키트 배정 데스크</title>
+  <link rel="stylesheet" href="desk.css">
+  <script type="module" src="desk.js"></script>
+</head>
+<body>
+  <header><h1>교육 키트 배정 데스크</h1><span id="session"></span></header>
+  <main>
+    <div class="stock">남은 키트<strong id="remaining"></strong></div>
+    <h2 id="requests">수업별 신청</h2>
+    <table aria-labelledby="requests">
+      <colgroup><col><col><col><col><col></colgroup>
+      <thead><tr><th>번호</th><th>수업명</th><th>신청</th><th>상태</th><th>조작</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p id="notice" role="status"></p>
+    <section><h2>전달 목록</h2><p id="delivery"></p><button id="reset">초기화</button></section>
+  </main>
+</body>
+</html>
